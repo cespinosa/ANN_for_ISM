@@ -1,3 +1,4 @@
+from base64 import b16decode
 import numpy as np
 import pandas as pd
 
@@ -50,6 +51,13 @@ def get_lU(x, params:list, tol_v=0.1):
               line_f(x, a2, b2)*arctg_w(x, x0, tol_v))
   return logU_tab
 
+def get_NO(x, params:list, tol_v=0.1):
+  c, a1, x0 = params.loc[['c', 'a1', 'x0']]
+  b1 = c - a1 * x0
+  NO_tab = (c*(1-arctg_w(x, x0, tol_v))+line_f(x, a1, b1)*
+            arctg_w(x, x0, tol_v))
+  return NO_tab
+
 def get_params(params: dict, params_type: str, oxy_lims: list):
   if params_type == 'points':
     pts_params = params
@@ -66,12 +74,17 @@ def get_params(params: dict, params_type: str, oxy_lims: list):
   return params_pd
 
 def create_model(params, params_type, oxy_lims,
-                 grid_size=100):
+                 Hbfrac=1, grid_size=100):
   model = get_params(params, params_type, oxy_lims)
   OH_tab = np.linspace(oxy_lims[0]-12, oxy_lims[1]-12, grid_size)
+  Hbfrac_tab = np.ones_like(OH_tab) * Hbfrac
   logU_tab = get_lU(OH_tab+12, model) 
+  NO_tab = get_NO(OH_tab+12, model)
   model =pd.concat([model, pd.Series({'OH_tab':OH_tab})])
+  model =pd.concat([model, pd.Series({'Hbfrac_tab':Hbfrac_tab})])
   model =pd.concat([model, pd.Series({'logU_tab':logU_tab})])
+  model =pd.concat([model, pd.Series({'NO_tab':NO_tab})])
+
   return model
 
   
