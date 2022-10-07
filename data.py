@@ -1,6 +1,7 @@
 import os
 import numpy as np
 import pandas as pd
+from itertools import product
 from ANN_manager import read_ANN
 
 def arctg_w(x, x0, tol_v=0.1):
@@ -74,19 +75,6 @@ def get_params(params: dict, params_type: str, oxy_lims: list):
   params_pd = pd.Series({**pts_params, **phys_params}) 
   return params_pd
 
-def create_model(params, params_type, oxy_lims,
-                 Hbfrac=1, grid_size=100):
-  model = get_params(params, params_type, oxy_lims)
-  OH_tab = np.linspace(oxy_lims[0]-12, oxy_lims[1]-12, grid_size)
-  Hbfrac_tab = np.ones_like(OH_tab) * Hbfrac
-  logU_tab = get_lU(OH_tab+12, model) 
-  NO_tab = get_NO(OH_tab+12, model)
-  model =pd.concat([model, pd.Series({'OH_tab':OH_tab})])
-  model =pd.concat([model, pd.Series({'Hbfrac_tab':Hbfrac_tab})])
-  model =pd.concat([model, pd.Series({'logU_tab':logU_tab})])
-  model =pd.concat([model, pd.Series({'NO_tab':NO_tab})])
-
-  return model
 
 def get_predict_ANN(ANN, tabs):
     ANN.set_test(tabs)
@@ -103,12 +91,28 @@ def generate_from_ANN(ANN, OH, logU, NO, Hbfrac, age=1, fr='low'):
   output = pd.Series({f'{name}_{fr}_{age}':ANN_pred[:,i]
                 for (i, name) in output_names.items()})
   return output
-  
-ANN = read_ANN('ANN_BOND_ALL',
-                os.path.expanduser('~/GoogleDrive/cespinosa/data/ANNs/'))
-model = create_model({'a1': -1.37, 'a3': -1.37, 'x0_2': 8,
-                      'b1': 8.42, 'c': -1.6, 'a2': 1, 'x0': 8},
-                      'points', [6.6, 9.4]) 
-model = pd.concat([model, generate_from_ANN(ANN, model['OH_tab'],
-                                            model['logU_tab'], model['NO_tab'],
-                                            model['Hbfrac_tab'])])
+
+def create_model(ANN, params, params_type, oxy_lims,
+                 Hbfrac=1, grid_size=100):
+  model = get_params(params, params_type, oxy_lims)
+  OH_tab = np.linspace(oxy_lims[0]-12, oxy_lims[1]-12, grid_size)
+  Hbfrac_tab = np.ones_like(OH_tab) * Hbfrac
+  logU_tab = get_lU(OH_tab+12, model) 
+  NO_tab = get_NO(OH_tab+12, model)
+  model =pd.concat([model, pd.Series({'OH_tab':OH_tab})])
+  model =pd.concat([model, pd.Series({'Hbfrac_tab':Hbfrac_tab})])
+  model =pd.concat([model, pd.Series({'logU_tab':logU_tab})])
+  model =pd.concat([model, pd.Series({'NO_tab':NO_tab})])
+  for fr, age in product(['low', 'high'], np.arange(6)):
+    model = pd.concat([model,
+                      generate_from_ANN(ANN, model['OH_tab'],
+                                        model['logU_tab'], model['NO_tab'],
+                                        model['Hbfrac_tab'],
+                                        age=age, fr=fr)])
+  return model
+ 
+# ANN = read_ANN('ANN_BOND_ALL',
+#                 os.path.expanduser('~/GoogleDrive/cespinosa/data/ANNs/'))
+# model = create_model(ANN, {'a1': -1.37, 'a3': -1.37, 'x0_2': 8,
+#                       'b1': 8.42, 'c': -1.6, 'a2': 1, 'x0': 8},
+#                       'points', [6.6, 9.4]) 
