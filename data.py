@@ -61,18 +61,22 @@ def get_NO(x, params:list, tol_v=0.1):
   return NO_tab
 
 def get_params(params: dict, params_type: str, oxy_lims: list):
-  if params_type == 'points':
-    pts_params = params
+  if params_type == 'func':
+    func_params = params
     phys_params = line_2_physics_params(params, oxy_lims)
   else:
     phys_params = params
-    phys_params['x1_lU'] = oxy_lims[0]+12
-    phys_params['x2_lU'] = oxy_lims[1]+12
-    phys_params['x1_NO'] = oxy_lims[0]+12
+    if not 'x1_lU' in params:
+      phys_params['x1_lU'] = oxy_lims[0]+12
+    if not 'x2_lU' in params:
+      phys_params['x2_lU'] = oxy_lims[1]+12
+    if not 'x1_NO' in params:
+      phys_params['x1_NO'] = oxy_lims[0]+12
+    if not 'x2_NO' in params:
+      phys_params['x2_NO'] = oxy_lims[1]+12
     phys_params['y1_NO'] = phys_params['y2_NO']
-    phys_params['x2_NO'] = oxy_lims[1]+12
-    pts_params = physics_2_line_params(phys_params)
-  params_pd = pd.Series({**pts_params, **phys_params}) 
+    func_params = physics_2_line_params(phys_params)
+  params_pd = pd.Series({**func_params, **phys_params}) 
   return params_pd
 
 
