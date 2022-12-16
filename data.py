@@ -11,7 +11,13 @@ def line_f(x, a, b):
   return a * x + b
 
 def line_2_physics_params(params: list, oxy_lims: list):
-  a1, a3, x0_2, b1, c, a2, x0 = params.values()
+  a1 = params['a1']
+  a3 = params['a3']
+  x0_2 = params['x0_2']
+  b1 = params['b1']
+  c = params['c']
+  a2 = params['a2']
+  x0 = params['x0']
   b2 = c - a2 * x0
   b3 = (a1-a3)*x0_2 + b1
   phys_params = {'x1_NO': oxy_lims[0],
@@ -47,14 +53,14 @@ def physics_2_line_params(params: list):
   return pts_params
 
 def get_lU(x, params:list, tol_v=0.1):
-  a1, a2, x0, b1 = params.loc[['a1', 'a2', 'x0', 'b1']]
-  b2 = (a1 - a2) * x0 + b1
+  a1, a3, x0, b1 = params.loc[['a1', 'a3', 'x0', 'b1']]
+  b2 = (a1 - a3) * x0 + b1
   logU_tab = (line_f(x, a1, b1)*(1-arctg_w(x, x0, tol_v)) + 
-              line_f(x, a2, b2)*arctg_w(x, x0, tol_v))
+              line_f(x, a3, b2)*arctg_w(x, x0, tol_v))
   return logU_tab
 
 def get_NO(x, params:list, tol_v=0.1):
-  c, a1, x0 = params.loc[['c', 'a1', 'x0']]
+  c, a1, x0 = params.loc[['c', 'a2', 'x0']]
   b1 = c - a1 * x0
   NO_tab = (c*(1-arctg_w(x, x0, tol_v))+line_f(x, a1, b1)*
             arctg_w(x, x0, tol_v))
@@ -90,7 +96,7 @@ def generate_from_ANN(ANN, OH, logU, NO, Hbfrac, age=1, fr='low'):
   output_names = {0:'O3', 1:'N2', 2:'O2', 3:'rO3', 4:'rN2', 5:'Np_Op'}
   fr_tab = np.ones_like(OH) * fr_value[fr]
   age_tab = np.ones_like(OH) * age
-  ANN_data = np.array([OH, NO, logU, fr_tab, age_tab, Hbfrac]).T
+  ANN_data = np.array([OH-12, NO, logU, fr_tab, age_tab, Hbfrac]).T
   ANN_pred = get_predict_ANN(ANN, ANN_data)
   output = pd.Series({f'{name}_{fr}_{age}':ANN_pred[:,i]
                 for (i, name) in output_names.items()})
@@ -99,24 +105,31 @@ def generate_from_ANN(ANN, OH, logU, NO, Hbfrac, age=1, fr='low'):
 def create_model(ANN, params, params_type, oxy_lims,
                  Hbfrac=1, grid_size=100):
   model = get_params(params, params_type, oxy_lims)
-  OH_tab = np.linspace(oxy_lims[0]-12, oxy_lims[1]-12, grid_size)
+  OH_tab = np.linspace(oxy_lims[0], oxy_lims[1], grid_size)
   Hbfrac_tab = np.ones_like(OH_tab) * Hbfrac
-  logU_tab = get_lU(OH_tab+12, model) 
-  NO_tab = get_NO(OH_tab+12, model)
+  logU_tab = get_lU(OH_tab, model) 
+  NO_tab = get_NO(OH_tab, model)
   model =pd.concat([model, pd.Series({'OH_tab':OH_tab})])
   model =pd.concat([model, pd.Series({'Hbfrac_tab':Hbfrac_tab})])
   model =pd.concat([model, pd.Series({'logU_tab':logU_tab})])
   model =pd.concat([model, pd.Series({'NO_tab':NO_tab})])
-  for fr, age in product(['low', 'high'], np.arange(6)):
+  for fr, age in product(['low', 'high'], np.arange(1, 6)):
     model = pd.concat([model,
                       generate_from_ANN(ANN, model['OH_tab'],
                                         model['logU_tab'], model['NO_tab'],
                                         model['Hbfrac_tab'],
                                         age=age, fr=fr)])
   return model
- 
-# ANN = read_ANN('ANN_BOND_ALL',
-#                 os.path.expanduser('~/GoogleDrive/cespinosa/data/ANNs/'))
-# model = create_model(ANN, {'a1': -1.37, 'a3': -1.37, 'x0_2': 8,
-#                       'b1': 8.42, 'c': -1.6, 'a2': 1, 'x0': 8},
-#                       'points', [6.6, 9.4]) 
+
+if __name__ == '__main__':
+  ANN = read_ANN('ANN_BOND_ALL',
+                  os.path.expanduser('~/GoogleDrive/cespinosa/data/ANNs/'))
+  model = create_model(ANN, {'a1': -1.37, 'a3': -1.37, 'x0_2': 8,
+                        'b1': 8.42, 'c': -1.6, 'a2': 1, 'x0': 8},
+                        'func', [6.7, 9.3])
+  import matplotlib.pyplot as plt
+  fig, axes = plt.subplots(1,3)
+  axes[0].scatter(model['OH_tab'], model['logU_tab'])
+  axes[1].scatter(model['OH_tab'], model['NO_tab'])
+  axes[2].scatter(model['N2_high_3']-np.log10(2.8), model['O3_high_3'])
+  plt.show()

@@ -6,6 +6,8 @@ from itertools import product
 from typing import Callable
 from ANN_manager import read_ANN
 from data import create_model
+from observational_data import read_Marino_data
+from scipy.spatial import KDTree
 
 def mutate(parent, n_childs):
   childs = parent + np.random.uniform(-1,1,n_childs)
@@ -49,6 +51,17 @@ def create_parents(ANN, nmodels=10, distr='uniform', OHlims=[6.7, 9.4]):
     parents_models.append(create_model(ANN, params_points, 'points', OHlims))
   return pd.concat(parents_models, axis=1).transpose() 
 
+def get_cneighbors(data_model, data_obs, nparents):
+  tree = KDTree(data_obs)
+  # inds = ctree.query_ball_point(data_model, radius)
+  dist, inds = tree.query(data_model, nparents)
+  inds = inds[0]
+  return inds, dist
+
+def next_gen(data, data_obs, nparents):
+  indices, distances = get_cneighbors(data, data_obs, nparents)
+  
+  
 
 if __name__ == '__main__':
   ANN = read_ANN('ANN_BOND_ALL',

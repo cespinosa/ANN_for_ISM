@@ -4,7 +4,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from CALIFA_data import get_data, clean_data_incl
 
-def read_Marino_data(path=None):
+def read_Marino_data(path: str=None) -> pd.DataFrame:
   if path is None:
     path = os.path.expanduser('~/GoogleDrive/cespinosa/data/obs/') +\
       'Marino_CHAOS_data_clean_v2.csv'
